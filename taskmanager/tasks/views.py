@@ -4,8 +4,8 @@ from django.shortcuts import render
 
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
-from .models import Task
-from .serializers import TaskSerializer,UserSignupSerializer
+from .models import Task,Category
+from .serializers import TaskSerializer,UserSignupSerializer,CategorySerializer
 from django.contrib.auth.models import User
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -15,6 +15,7 @@ from rest_framework.decorators import api_view, permission_classes
 from .serializers import TaskSerializer, UserSerializer
 from rest_framework.decorators import action
 from rest_framework.permissions import DjangoObjectPermissions
+
 class UserProfileView(APIView):
 
     def get(self, request):
@@ -26,6 +27,8 @@ class UserListView(APIView):
     def get(self, request):
         if request.user.is_superuser:
             users = User.objects.all() 
+        else:
+            users = User.objects.filter(username=request.user)
         serializer = UserSignupSerializer(users, many=True)
         return Response(serializer.data)
     
@@ -97,15 +100,34 @@ def current_user(request):
         'is_superuser': request.user.is_superuser
     })
 
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def user_permissions_view(request):
     user = request.user
-    perms = {
-        'view_task': user.has_perm('tasks.view_task'),
-        'add_task': user.has_perm('tasks.add_task'),
-        'change_task': user.has_perm('tasks.change_task'),
-        'delete_task': user.has_perm('tasks.delete_task'),
-    }
-    return Response(perms)
+    all_perms = user.get_all_permissions()  # returns set of strings like "app_label.codename"
+    # Optional: group permissions by app
+    permissions_by_app = {}
+    for perm in all_perms:
+        app_label, codename = perm.split('.')
+        permissions_by_app.setdefault(app_label, []).append(codename)
+
+    if not permissions_by_app:
+        return Response({
+            'username': user.username,
+            'permissions': {'tasks':[]}
+    })  
+    else:
+        return Response({
+            'username': user.username,
+            'permissions': permissions_by_app
+    })
+
+class CategoryViewSet(viewsets.ModelViewSet):
+
+    queryset=Category.filtered.all()
+    serializer_class=CategorySerializer
+    permission_classes=[permissions.IsAuthenticated,DjangoObjectPermissions]
+
+    def create(self, request, *args, **kwargs):
+        print(self.request.user,self.request.data)
+        return super().create(request, *args, **kwargs)

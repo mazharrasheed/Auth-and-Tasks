@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Task
+from .models import Task,Category
 from django.contrib.auth.models import User
 import re
 
@@ -8,7 +8,7 @@ class UserSignupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'password']
+        fields = ['id','username', 'password']
 
     def validate_username(self, value):
         if User.objects.filter(username=value).exists():
@@ -61,3 +61,11 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = ['id', 'title', 'description', 'completed', 'assigned_to', 'assigned_to_username', 'created_at']
+
+class CategorySerializer(serializers.ModelSerializer):
+
+    class Meta:
+
+        model=Category
+        fields=['id','name']
+        

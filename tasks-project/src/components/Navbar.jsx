@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { NavLink } from 'react-router-dom';
-import { AuthContext } from '../store/AuthContext';
+import { AuthContext } from '../context/AuthContext';
 
 export default function Navbar() {
   const { token } = useContext(AuthContext);
@@ -27,6 +27,11 @@ export default function Navbar() {
                   <li className="nav-item">
                     <NavLink className={getNavLinkClass} to="/tasks">
                       Tasks
+                    </NavLink>
+                  </li>
+                  <li className="nav-item">
+                    <NavLink className={getNavLinkClass} to="/categories">
+                      Category
                     </NavLink>
                   </li>
                   <li className="nav-item">

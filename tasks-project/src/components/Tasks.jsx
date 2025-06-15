@@ -1,11 +1,15 @@
 // TaskManager.jsx
 
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useMemo } from 'react';
 import axios from 'axios';
-import { AuthContext } from '../store/AuthContext';
-import { FaEdit, FaTrash, FaCheck, FaPlus, FaTimes } from 'react-icons/fa';
-import Table from './Table';
+import { AuthContext } from '../context/AuthContext';
+import { FaEdit, FaTrash, FaCheck, FaPlus, FaTimes, FaExclamationTriangle } from 'react-icons/fa';
+import StatusModal from './StatusModal';
+import ConfirmModal from './ConfirmModal';
 
+
+import Table from './Table';
+import ReusableTable from './ReusableTable';
 const TaskManager = () => {
   const { token } = useContext(AuthContext);
   const [tasks, setTasks] = useState([]);
@@ -46,11 +50,11 @@ const TaskManager = () => {
   const [userPerms, setUserPerms] = useState({});
 
   const fetchPermissions = async () => {
-    const res = await axios.get('http://127.0.0.1:8000/api/users/me/permissions/', {
+    const response = await axios.get('http://127.0.0.1:8000/api/users/me/permissions/', {
       headers: { Authorization: `Token ${token}` },
     });
-    setUserPerms(res.data);
-    console.log(res.data)
+    setUserPerms(response.data);
+    console.log(response.data)
   };
 
 
@@ -130,58 +134,67 @@ const TaskManager = () => {
     }
   };
 
+  const handleDelete = (rowid) => {
+    setTaskToDelete(rowid);
+    setShowConfirmModal(true);
+  }
+
+  const columns = [
+    { header: "ID", accessor: "id", sortable: true, center: true },
+    { header: "Title", accessor: "title", sortable: true },
+    { header: "Description", accessor: "description", sortable: true },
+    {
+      header: "Assigned To",
+      accessor: "assigned_to",
+      sortable: true,
+      render: (value, row, index, extra) => extra.userMap?.[value] || "Unknown",
+    },
+    { header: "Status", accessor: row => row.completed ? <> <FaCheck className="text-success me-2" /> Completed  </> : <><FaExclamationTriangle className="text-warning me-2" /> Pending </>, sortable: true, center: true },
+    {
+      header: "Actions",
+      center: true,
+      accessor: (row) => (
+        <>
+          <button className="btn btn-sm btn-outline-primary me-2" onClick={() => handleEdit(row)}>
+            <FaEdit /> Edit
+          </button>
+          <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(row.id)}>
+            <FaTrash /> Delete
+          </button>
+        </>
+      ),
+      sortable: false
+    },
+  ];
+
+
+  const userMap = useMemo(() => {
+    const map = {};
+    users.forEach(user => (map[user.id] = user.username));
+    return map;
+  }, [users]);
+
+
   return (
     <div className="container mt-4">
-      {/* Confirm Delete Modal */}
-      {showConfirmModal && (
-        <div className="modal d-block" tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header bg-danger">
-                <h5 className="modal-title text-white">Confirm Deletion</h5>
-              </div>
-              <div className="modal-body">
-                <p>Are you sure you want to delete this task?</p>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => setShowConfirmModal(false)}>
-                  <FaTimes /> Cancel
-                </button>
-                <button className="btn btn-danger" onClick={confirmDelete}>
-                  <FaTrash /> Yes, Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Status Message Modal */}
-      {modalMessage && (
-        <div className="modal d-block" tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className={`modal-header ${modalStatus === 'success' ? 'bg-success' : 'bg-danger'}`}>
-                <h5 className="modal-title text-white">Status</h5>
-              </div>
-              <div className="modal-body">
-                <p>{modalMessage}</p>
-              </div>
-              <div className="modal-footer">
-                <button
-                  className={`btn btn-outline-${modalStatus === 'success' ? 'success' : 'danger'}`}
-                  onClick={() => setModalMessage('')}
-                >
-                  {modalStatus === 'success' ? <FaCheck /> : <FaTimes />} OK
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/*  Modals */}
+
+      <ConfirmModal
+        show={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={confirmDelete}
+        message={modalMessage}
+      />
+
+      <StatusModal
+        message={modalMessage}
+        status={modalStatus}
+        onClose={() => setModalMessage('')}
+      />
 
       <h2>Task Manager</h2>
-      {userPerms.add_task && (
+      {userPerms.permissions?.tasks?.includes('add_task') && (
         <button className="btn btn-success mb-3 mt-5" onClick={() => setShowForm(true)}>
           <FaPlus /> Create Task
         </button>
@@ -244,14 +257,8 @@ const TaskManager = () => {
         </form>
       )}
 
-      <Table
-        tasks={tasks}
-        users={users}
-        userPerms={userPerms}
-        handleEdit={handleEdit}
-        setTaskToDelete={setTaskToDelete}
-        setShowConfirmModal={setShowConfirmModal}
-      />
+   
+      <ReusableTable columns={columns} data={tasks} extra={{ userMap }}></ReusableTable>
     </div>
   );
 };
